@@ -16,7 +16,7 @@ specialties = ['ortopedia', 'cardiologia', 'neurologia', 'dermatologia', 'pediat
 
 # Define date ranges for consultations
 start_date = datetime(2023, 1, 1)
-end_date = datetime(2023, 12, 31)
+end_date = datetime(2024, 12, 31)
 
 # Define parameters for observacoes
 sintomas = [f'Sintoma {i}' for i in range(1, 51)]
@@ -106,7 +106,7 @@ def generate_consultas(pacientes, medicos, clinics, trabalha, start_date, end_da
                 for medico in available_medicos:
                     impossivel = False
                     used_times = set()
-                    used_times = set([c[5] for c in consultas if c[4] == current_date.date().isoformat() and c[3] == clinic[0] and c[2] == medico[0]])
+                    used_times = set([c[5] for c in consultas if c[4] == current_date.date().isoformat() and c[2] == medico[0]])
                     for i in range(2):
                         codigo_sns = f'{random.randint(100000000000, 999999999999)}'
                         while codigo_sns in used_codes:
@@ -135,15 +135,22 @@ def generate_consultas(pacientes, medicos, clinics, trabalha, start_date, end_da
                 
         current_date += timedelta(days=1)
         
+        
+
+        
     for paciente in pacientes:
         clinic = random.choice(clinics)
         random_date = (start_date + (end_date - start_date) * random.random())
-        weekday = (current_date.weekday()+1)%7
+        weekday = (random_date.weekday()+1)%7
         medicos_on_duty = [t[0] for t in trabalha if t[1] == clinic[0] and t[2] == weekday]
         random_time = f'{random.choice(list(range(8, 13)) + list(range(14, 19)))}:{random.choice(["00", "30"])}:00'
         medico = random.choice(medicos_on_duty)
     
-        used_times = [c[5] for c in consultas if c[4] == random_date.date().isoformat() and c[3] == clinic[0] and c[2] == medico[0]]
+        used_times.clear()
+        for i in range(len(consultas)):
+            if consultas[i][2] == medico[0]:
+                if consultas[i][4] == random_date.date().isoformat():
+                    used_times.add(consultas[i][5])
         while random_time in used_times:
             random_time = f'{random.choice(list(range(8, 13)) + list(range(14, 19)))}:{random.choice(["00", "30"])}:00'
             if len(used_times) == 20:
@@ -151,15 +158,18 @@ def generate_consultas(pacientes, medicos, clinics, trabalha, start_date, end_da
                 #OU SEJA, ARRANJAR UM DIA DIFERENTE E SORTEAR UM MÉDICO ALOCADO NESSE DIA E CLÍNICA?
                 #ATÉ SE PODE SORTEAR TUDO USANDO:
                 #""
-                # clinic = random.choice(clinics)
-                # random_date = (start_date + (end_date - start_date) * random.random())
-                # weekday = (current_date.weekday()+1)%7
-                # medicos_on_duty = [t[0] for t in trabalha if t[1] == clinic[0] and t[2] == weekday]
-                # random_time = f'{random.choice(list(range(8, 13)) + list(range(14, 19)))}:{random.choice(["00", "30"])}:00'
-                # medico = random.choice(medicos_on_duty)
-                #""
+                clinic = random.choice(clinics)
                 random_date = (start_date + (end_date - start_date) * random.random())
-                used_times = [c[5] for c in consultas if c[4] == random_date.date().isoformat() and c[3] == clinic[0] and c[2] == medico[0]]
+                weekday = (random_date.weekday()+1)%7
+                medicos_on_duty = [t[0] for t in trabalha if t[1] == clinic[0] and t[2] == weekday]
+                medico = random.choice(medicos_on_duty)
+                used_times.clear()
+                for i in range(len(consultas)):
+                    if consultas[i][2] == medico[0]:
+                        if consultas[i][4] == random_date.date().isoformat():
+                            used_times.add(consultas[i][5])
+                    #""
+
         consulta_id += 1
         codigo_sns = f'{random.randint(100000000000, 999999999999)}'
         while codigo_sns in used_codes:
@@ -169,23 +179,36 @@ def generate_consultas(pacientes, medicos, clinics, trabalha, start_date, end_da
     return consultas
 
 def generate_receitas(consultas):
+    used_medication = set()
     receitas = []
     for consulta in consultas:
+        used_medication.clear()
         if random.random() < 0.8:
             for _ in range(random.randint(1, 6)):
                 medicamento = f'Medicamento {random.randint(1, 100)}'
+                while medicamento in used_medication:
+                    medicamento = f'Medicamento {random.randint(1, 100)}'
+                used_medication.add(medicamento)
                 quantidade = random.randint(1, 3)
                 receitas.append((consulta[6], medicamento, quantidade))
     return receitas
 
 def generate_observacoes(consultas):
     observacoes = []
+    used_parameters = set()
     for consulta in consultas:
+        used_parameters.clear()
         for _ in range(random.randint(1, 5)):
             parametro = random.choice(sintomas)
-            observacoes.append((consulta[0], parametro, None))
+            while parametro in used_parameters:
+                parametro = random.choice(sintomas)
+            used_parameters.add(parametro)
+            observacoes.append((consulta[0], parametro, "NULL"))
         for _ in range(random.randint(0, 3)):
             parametro = random.choice(metricas)
+            while parametro in used_parameters:
+                parametro = random.choice(metricas)
+            used_parameters.add(parametro)
             valor = round(random.uniform(35.0, 40.0), 1)
             observacoes.append((consulta[0], parametro, valor))
     return observacoes
