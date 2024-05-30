@@ -91,47 +91,79 @@ def generate_consultas(pacientes, medicos, clinics, trabalha, start_date, end_da
     used_codes = []
     used_times = []
     current_date = start_date
+    dates = [current_date + timedelta(days=i) for i in range((end_date - start_date).days + 1)]
+    current_date = start_date
+    
+    available_times = [f'{h:02}:{m:02}:00' for h in range(8, 13) for m in [0, 30]] + [f'{h:02}:{m:02}:00' for h in range(14, 19) for m in [0, 30]]
+    
+    data = {}
+    consultas_by_day = {}
+    for clinic in clinics:
+        data.update({clinic[0]:{}})
+        consultas_by_day.update({clinic[0]:{}})
+        while current_date <= end_date:
+            weekday = (current_date.weekday()+1)%7
+            data[clinic[0]].update({current_date:{}})
+            consultas_by_day[clinic[0]].update({current_date:[]})
+            for t in trabalha:
+                if t[1] == clinic[0] and t[2] == weekday:
+                    data[clinic[0]][current_date].update({t[0]:[]})
+            for medico in data[clinic[0]][current_date]:
+                for hora in available_times:
+                    data[clinic[0]][current_date][medico].append(hora)
+            current_date += timedelta(days=1)
+        current_date = start_date
+
+
+    
+    current_date = start_date
     while current_date <= end_date:
+        consultas_by_day.update({current_date:[]})
         for clinic in clinics:
+            
             # Find all medicos that work in this clinic on this day of the week
             weekday = (current_date.weekday()+1)%7
-            medicos_on_duty = [t[0] for t in trabalha if t[1] == clinic[0] and t[2] == weekday]
             remaining_consultations_per_clinic = 20
-            while remaining_consultations_per_clinic > 0:  # At least 20 consultations per day per clinic
-                available_medicos = [m for m in medicos if m[0] in medicos_on_duty]  # Ensure medico is not the same as paciente and is on duty
-                if not available_medicos:
-                    continue  # Skip if no available medicos for this patient at this clinic on this day
+            #while remaining_consultations_per_clinic > 0:  # At least 20 consultations per day per clinic
                 
-                
-                for medico in available_medicos:
-                    impossivel = False
-                    used_times = set()
-                    used_times = set([c[5] for c in consultas if c[4] == current_date.date().isoformat() and c[2] == medico[0]])
-                    for i in range(2):
+            for medico in data[clinic[0]][current_date]:
+                impossivel = False
+                for i in range(2):
+                    codigo_sns = f'{random.randint(100000000000, 999999999999)}'
+                    while codigo_sns in used_codes:
                         codigo_sns = f'{random.randint(100000000000, 999999999999)}'
-                        while codigo_sns in used_codes:
-                            codigo_sns = f'{random.randint(100000000000, 999999999999)}'
-                            
-                        hora = f'{random.choice(list(range(8, 13)) + list(range(14, 19)))}:{random.choice(["00", "30"])}:00'
-                        #while hora in [c[5] for c in consultas if c[4] == current_date.date().isoformat() and c[3] == clinic[0] and c[2] == medico[0]]:
-                        while hora in used_times:    
-                            hora = f'{random.choice(list(range(8, 13)) + list(range(14, 19)))}:{random.choice(["00", "30"])}:00'
-                            if len(used_times) == 20:
-                                impossivel = True
-                                break
-                        if impossivel:
-                            break
-                        used_times.add(hora)
-                        used_codes.append(codigo_sns)
+                    used_codes.append(codigo_sns)
                         
+                    paciente = random.choice(pacientes)
+                    while(paciente[1] == medico or paciente[0] in [c[1] for c in consultas_by_day[current_date]]):
                         paciente = random.choice(pacientes)
-                        while(paciente[1] == medico[0] or paciente[0] in [c[1] for c in consultas if c[4] == current_date.date().isoformat() and c[5] == hora]):
-                            paciente = random.choice(pacientes)
                         
-                        consultas.append((consulta_id, paciente[0], medico[0], clinic[0], current_date.date().isoformat(), hora, codigo_sns))
-                        consulta_id += 1
-                        remaining_consultations_per_clinic -= 1
-                        print(i, remaining_consultations_per_clinic, current_date.date().isoformat(), medico[0])
+                    consultas.append((consulta_id, paciente[0], medico, clinic[0], current_date.date().isoformat(), data[clinic[0]][current_date][medico].pop(random.randint(0,len(data[clinic[0]][current_date][medico])-1)), codigo_sns))
+                    consultas_by_day[current_date].append((consulta_id, paciente[0], medico, clinic[0], current_date.date().isoformat(), data[clinic[0]][current_date][medico].pop(random.randint(0,len(data[clinic[0]][current_date][medico])-1)), codigo_sns))
+                    consulta_id += 1
+                    remaining_consultations_per_clinic -= 1
+                    print(i, remaining_consultations_per_clinic, current_date.date().isoformat(), medico)
+            while remaining_consultations_per_clinic > 0:
+                medico = random.choice(list(data[clinic[0]][current_date].keys()))
+                while medico == "consultas_this_day":
+                    medico = random.choice(list(data[clinic[0]][current_date].keys()))
+                impossivel = False
+                codigo_sns = f'{random.randint(100000000000, 999999999999)}'
+                while codigo_sns in used_codes:
+                    codigo_sns = f'{random.randint(100000000000, 999999999999)}'
+                used_codes.append(codigo_sns)
+                        
+                paciente = random.choice(pacientes)
+                while(paciente[1] == medico or paciente[0] in [c[1] for c in consultas_by_day[current_date]]):
+                    paciente = random.choice(pacientes)
+                        
+                hora = data[clinic[0]][current_date][medico].pop(random.randint(0,len(data[clinic[0]][current_date][medico])-1))
+                consultas.append((consulta_id, paciente[0], medico, clinic[0], current_date.date().isoformat(), hora, codigo_sns))
+                consultas_by_day[current_date].append((consulta_id, paciente[0], medico, clinic[0], current_date.date().isoformat(), hora, codigo_sns))
+                consulta_id += 1
+                remaining_consultations_per_clinic -= 1
+                print(i, remaining_consultations_per_clinic, current_date.date().isoformat(), medico)
+                
                 
         current_date += timedelta(days=1)
         
@@ -140,41 +172,34 @@ def generate_consultas(pacientes, medicos, clinics, trabalha, start_date, end_da
         
     for paciente in pacientes:
         clinic = random.choice(clinics)
-        random_date = (start_date + (end_date - start_date) * random.random())
-        weekday = (random_date.weekday()+1)%7
-        medicos_on_duty = [t[0] for t in trabalha if t[1] == clinic[0] and t[2] == weekday]
-        random_time = f'{random.choice(list(range(8, 13)) + list(range(14, 19)))}:{random.choice(["00", "30"])}:00'
-        medico = random.choice(medicos_on_duty)
+        # current_date = (start_date + (end_date - start_date) * random.random())
+        # current_date = current_date.date()
+        current_date = random.choice(dates)
+        medico = random.choice(list(data[clinic[0]][current_date].keys()))
+        while medico == "consultas_this_day":
+            medico = random.choice(list(data[clinic[0]][current_date].keys()))
     
-        used_times.clear()
-        for i in range(len(consultas)):
-            if consultas[i][2] == medico[0]:
-                if consultas[i][4] == random_date.date().isoformat():
-                    used_times.add(consultas[i][5])
-        while random_time in used_times:
-            random_time = f'{random.choice(list(range(8, 13)) + list(range(14, 19)))}:{random.choice(["00", "30"])}:00'
-            if len(used_times) == 20:
-                #FIXME ARRANJAR MÉDICO DIFERENTE NO MESMO DIA (medicos on duty) OU JOGAR PELO SEGURO,
-                #OU SEJA, ARRANJAR UM DIA DIFERENTE E SORTEAR UM MÉDICO ALOCADO NESSE DIA E CLÍNICA?
-                #ATÉ SE PODE SORTEAR TUDO USANDO:
-                #""
-                clinic = random.choice(clinics)
-                random_date = (start_date + (end_date - start_date) * random.random())
-                weekday = (random_date.weekday()+1)%7
-                medicos_on_duty = [t[0] for t in trabalha if t[1] == clinic[0] and t[2] == weekday]
-                medico = random.choice(medicos_on_duty)
-                used_times.clear()
-                for i in range(len(consultas)):
-                    if consultas[i][2] == medico[0]:
-                        if consultas[i][4] == random_date.date().isoformat():
-                            used_times.add(consultas[i][5])
-                    #""
+        while data[clinic[0]][current_date][medico] == [] or paciente[1] == medico or paciente[0] in [c[1] for c in consultas_by_day[current_date]]:
+            #FIXME ARRANJAR MÉDICO DIFERENTE NO MESMO DIA (medicos on duty) OU JOGAR PELO SEGURO,
+            #OU SEJA, ARRANJAR UM DIA DIFERENTE E SORTEAR UM MÉDICO ALOCADO NESSE DIA E CLÍNICA?
+            #ATÉ SE PODE SORTEAR TUDO USANDO:
+            #""
+            clinic = random.choice(clinics)
+            current_date = random.choice(dates)
+            medico = random.choice(list(data[clinic[0]][current_date].keys()))
+            while medico == "consultas_this_day":
+                medico = random.choice(list(data[clinic[0]][current_date].keys()))
+            #""
 
         consulta_id += 1
         codigo_sns = f'{random.randint(100000000000, 999999999999)}'
         while codigo_sns in used_codes:
             codigo_sns = f'{random.randint(100000000000, 999999999999)}'
-        consultas.append((consulta_id, paciente[0], medico, clinic[0], random_date.date().isoformat(), random_time, codigo_sns))
+        used_codes.append(codigo_sns)
+        
+        hora = data[clinic[0]][current_date][medico].pop(random.randint(0,len(data[clinic[0]][current_date][medico])-1))
+        consultas.append((consulta_id, paciente[0], medico, clinic[0], current_date.date().isoformat(), hora, codigo_sns))
+        consultas_by_day[current_date].append((consulta_id, paciente[0], medico, clinic[0], current_date.date().isoformat(), hora, codigo_sns))   
             
     return consultas
 
@@ -203,7 +228,7 @@ def generate_observacoes(consultas):
             while parametro in used_parameters:
                 parametro = random.choice(sintomas)
             used_parameters.add(parametro)
-            observacoes.append((consulta[0], parametro, "NULL"))
+            observacoes.append((consulta[0], parametro, 'NULL'))
         for _ in range(random.randint(0, 3)):
             parametro = random.choice(metricas)
             while parametro in used_parameters:
@@ -216,9 +241,43 @@ def generate_observacoes(consultas):
 def write_to_file(filename, data):
     with open(filename, 'w') as f:
         for table, rows in data.items():
-            for row in rows:
-                values = ', '.join(f"""'{str(value).replace("'", "''")}'""" if isinstance(value, str) else str(value) for value in row)
-                f.write(f"INSERT INTO {table} VALUES ({values});\n")
+            if table == 'consulta':
+                f.write(f"INSERT INTO {table} (id, ssn, nif, nome, data, hora, codigo_sns) VALUES")
+                i = 0;
+                for row in rows:
+                    if i != 0:
+                        f.write(",")
+                    f.write("\n")
+                    values = ', '.join(f"""'{str(value).replace("'", "''")}'""" if isinstance(value, str) else str(value) for value in row)
+                    f.write(f"({values})")
+                    i += 1
+                f.write(";\n\n")
+            elif table == 'observacao':
+                f.write(f"INSERT INTO {table} (id, parametro, valor) VALUES")
+                i = 0;
+                for row in rows:
+                    if i != 0:
+                        f.write(",")
+                    f.write("\n")
+                    values = f"{row[0]}, '{row[1]}', {row[2]}"
+                    f.write(f"({values})")
+                    i += 1
+                f.write(";\n\n")
+            elif table == 'receita':
+                f.write(f"INSERT INTO {table} (codigo_sns, medicamento, quantidade) VALUES")
+                i = 0;
+                for row in rows:
+                    if i != 0:
+                        f.write(",")
+                    f.write("\n")
+                    values = ', '.join(f"""'{str(value).replace("'", "''")}'""" if isinstance(value, str) else str(value) for value in row)
+                    f.write(f"({values})")
+                    i += 1
+                f.write(";\n\n")
+            else:
+                for row in rows:
+                    values = ', '.join(f"""'{str(value).replace("'", "''")}'""" if isinstance(value, str) else str(value) for value in row)
+                    f.write(f"INSERT INTO {table} VALUES ({values});\n")
 
 def main():
     clinics = generate_clinics()
