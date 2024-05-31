@@ -213,7 +213,7 @@ def register_appointment(clinica):
                     {"id": next_id, "clinica": clinica, "data": data, "hora": hora, "medico": medico, "paciente": paciente},
                 )
 
-                return "Marcação concluida com sucesso!", 200
+                return jsonify({"SUCESSO": "Consulta marcada!"}), 200
 
             
 
@@ -385,7 +385,7 @@ def cancel_appointment(clinica):
                      "nome_medico": nome_medico, "especialidade": especildade},
                 )
                 conn.commit()
-                return "Marcação removida com sucesso!", 200
+                return jsonify({"SUCESSO":"Marcação cancelada!"}), 200
 
 
 if __name__ == '__main__':
